@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A mobile-first Pokédex for all 1,025 Pokémon: search, filters, stats, abilities, type matchups, forms and evolutions.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pocket Dex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23c8341f'/%3E%3Ccircle cx='32' cy='32' r='15' fill='%232a6fb0' stroke='%23fff' stroke-width='5'/%3E%3Ccircle cx='27' cy='27' r='4' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<title>Pocket Dex</title>
+<meta name="theme-color" content="#c8341f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a field index — sticky search console on top, a dense grid of numbered entry cards, entries open as a full sheet on phones / side panel on wide screens */
+:root{
+  --bg:#eef1f5; --surface:#ffffff; --surface-2:#e3e8ef; --fg:#18202b; --muted:#5d6878; --line:#d3dae4;
+  --signal:#c8341f; --signal-fg:#ffffff;
+  --low:#d0503c; --mid:#d99a1e; --good:#5aa548; --great:#2e8fa8;
+  --male:#3b78c4; --female:#d2557f;
+  --shadow:0 1px 2px rgb(24 32 43 / .06), 0 4px 14px rgb(24 32 43 / .06);
+  --f-display:"Unbounded", "Arial Black", system-ui, sans-serif;
+  --f-body:"Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#10141a; --surface:#1a2029; --surface-2:#242c37; --fg:#e8edf3; --muted:#9aa6b6; --line:#2e3744;
+  --signal:#ec5a42; --signal-fg:#1a0d0a;
+  --low:#e46a55; --mid:#e7ad3c; --good:#73bf60; --great:#4fb3cd;
+  --male:#6b9fe0; --female:#e57fa2;
+  --shadow:0 1px 2px rgb(0 0 0 / .3), 0 6px 18px rgb(0 0 0 / .25);
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#10141a; --surface:#1a2029; --surface-2:#242c37; --fg:#e8edf3; --muted:#9aa6b6; --line:#2e3744;
+  --signal:#ec5a42; --signal-fg:#1a0d0a;
+  --low:#e46a55; --mid:#e7ad3c; --good:#73bf60; --great:#4fb3cd;
+  --male:#6b9fe0; --female:#e57fa2;
+  --shadow:0 1px 2px rgb(0 0 0 / .3), 0 6px 18px rgb(0 0 0 / .25);
+  color-scheme:dark }
+
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--signal)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* ---------- console header ---------- */
+.console{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--signal);color:var(--signal-fg);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 0}
+.console-inner{max-width:1200px;margin:0 auto;display:grid;gap:10px}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.brand h1{margin:0;font-family:var(--f-display);font-weight:800;font-size:1.25rem;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+.lens{width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff 0 18%,#8fd3ff 19% 55%,#2a6fb0 56%);box-shadow:0 0 0 3px rgb(255 255 255 / .85);flex:none}
+.brand .count{font-family:var(--f-mono);font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;opacity:.85}
+.searchrow{display:flex;gap:8px}
+.search{flex:1;min-width:0;position:relative}
+.search input{width:100%;height:44px;border-radius:12px;border:0;padding:0 14px 0 40px;background:var(--surface);color:var(--fg);font-size:16px}
+.search svg{position:absolute;left:12px;top:12px;width:20px;height:20px;color:var(--muted);pointer-events:none}
+.iconbtn{height:44px;min-width:44px;border-radius:12px;border:0;background:rgb(255 255 255 / .18);color:inherit;display:grid;place-items:center;padding:0 12px;font-weight:600;gap:6px;grid-auto-flow:column}
+.iconbtn[aria-pressed="true"]{background:var(--surface);color:var(--signal)}
+.iconbtn svg{width:20px;height:20px}
+.controls{display:flex;gap:8px;flex-wrap:wrap}
+.controls select{height:36px;border-radius:10px;border:0;background:rgb(255 255 255 / .18);color:inherit;padding:0 30px 0 12px;font-weight:600;font-size:.875rem;appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 15px) 16px,calc(100% - 10px) 16px;background-size:5px 5px;background-repeat:no-repeat}
+.controls select option{color:var(--fg);background:var(--surface)}
+.typestrip{display:flex;gap:6px;overflow-x:auto;padding-block:2px 12px;margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px))) calc(-1 * max(16px,env(safe-area-inset-right,0px)));
+  padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px));scrollbar-width:none}
+.typestrip::-webkit-scrollbar{display:none}
+.tchip{flex:none;height:30px;padding:0 12px;border-radius:999px;border:2px solid transparent;font-size:.8125rem;font-weight:700;letter-spacing:.02em;
+  background:var(--tc);color:var(--tt);opacity:.92}
+.tchip[aria-pressed="true"]{border-color:var(--signal-fg);box-shadow:0 0 0 2px var(--signal);opacity:1}
+.tchip.all{background:rgb(255 255 255 / .18);color:inherit}
+.tchip.all[aria-pressed="true"]{background:var(--surface);color:var(--signal);box-shadow:none;border-color:transparent}
+
+/* ---------- grid ---------- */
+main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
+.wrap{max-width:1200px;margin:0 auto}
+.status{display:flex;justify-content:space-between;align-items:center;gap:12px;color:var(--muted);font-size:.8125rem;margin-bottom:12px}
+.status b{color:var(--fg);font-weight:600}
+.linkbtn{border:0;background:none;color:var(--signal);font-weight:700;padding:6px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:10px}
+.card{position:relative;display:grid;grid-template-rows:auto 1fr auto;gap:6px;text-align:left;border:0;border-radius:var(--r);padding:12px;min-height:128px;
+  background:color-mix(in oklab,var(--t1) 13%,var(--surface));box-shadow:var(--shadow);overflow:hidden;content-visibility:auto;contain-intrinsic-size:auto 128px;
+  transition:transform .15s ease}
+.card:active{transform:scale(.97)}
+.card .no{font-family:var(--f-mono);font-size:.75rem;color:var(--muted);letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.card .nm{font-family:var(--f-display);font-weight:700;font-size:.95rem;line-height:1.2;letter-spacing:-.01em;min-width:0;overflow-wrap:anywhere;align-self:start}
+.card .big{position:absolute;right:-6px;bottom:-18px;font-family:var(--f-display);font-weight:800;font-size:4.2rem;line-height:1;color:var(--t1);opacity:.16;pointer-events:none;letter-spacing:-.04em}
+.card .fav{position:absolute;top:10px;right:10px;width:16px;height:16px;color:var(--signal)}
+.types{display:flex;gap:4px;flex-wrap:wrap}
+.tp{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;font-size:.6875rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:var(--tc);color:var(--tt)}
+.empty,.loading{padding:48px 16px;text-align:center;color:var(--muted)}
+.empty h2,.loading h2{font-family:var(--f-display);font-size:1.1rem;color:var(--fg);margin:0 0 6px}
+.bar-load{width:min(280px,80%);height:6px;border-radius:3px;background:var(--surface-2);margin:18px auto 0;overflow:hidden}
+.bar-load i{display:block;height:100%;width:40%;background:var(--signal);border-radius:3px;animation:slide 1.1s ease-in-out infinite}
+@keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
+.retry{margin-top:16px;height:40px;padding:0 18px;border-radius:10px;border:0;background:var(--signal);color:var(--signal-fg);font-weight:700}
+
+/* ---------- entry sheet ---------- */
+.scrim{position:fixed;inset:0;background:rgb(10 14 20 / .45);z-index:40;opacity:0;transition:opacity .2s}
+.scrim.on{opacity:1}
+.sheet{position:fixed;inset:0;z-index:50;background:var(--bg);overflow-y:auto;overscroll-behavior:contain;
+  transform:translateY(24px);opacity:0;transition:transform .22s ease,opacity .22s ease}
+.sheet.on{transform:none;opacity:1}
+@media (min-width:860px){ .sheet{inset:0 0 0 auto;width:520px;transform:translateX(30px);box-shadow:-10px 0 40px rgb(0 0 0 / .18)} }
+.sheet-top{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:6px;
+  padding-top:calc(env(safe-area-inset-top,0px) + 8px);padding-bottom:8px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));
+  background:color-mix(in oklab,var(--t1) 22%,var(--bg))}
+.sheet-top .sp{flex:1}
+.tbtn{width:42px;height:42px;border-radius:12px;border:0;background:color-mix(in oklab,var(--fg) 8%,transparent);display:grid;place-items:center}
+.tbtn svg{width:22px;height:22px}
+.tbtn[aria-pressed="true"]{color:var(--signal)}
+.hero{position:relative;overflow:hidden;background:color-mix(in oklab,var(--t1) 22%,var(--bg));
+  padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));padding-block:8px 22px}
+.hero .bignum{position:absolute;right:-10px;top:-14px;font-family:var(--f-display);font-weight:800;font-size:9rem;line-height:1;color:var(--t1);opacity:.2;letter-spacing:-.05em;pointer-events:none}
+.hero .no{font-family:var(--f-mono);color:var(--muted);font-size:.875rem;letter-spacing:.05em}
+.hero h2{position:relative;margin:4px 0 10px;font-family:var(--f-display);font-weight:800;font-size:clamp(1.7rem,7vw,2.3rem);line-height:1.05;letter-spacing:-.02em;text-wrap:balance;overflow-wrap:anywhere}
+.hero .tp{height:26px;font-size:.75rem;padding:0 10px}
+.forms{position:relative;display:flex;gap:6px;overflow-x:auto;margin-top:16px;scrollbar-width:none;padding-bottom:2px}
+.forms::-webkit-scrollbar{display:none}
+.forms button{flex:none;height:32px;padding:0 12px;border-radius:999px;border:1px solid color-mix(in oklab,var(--fg) 25%,transparent);background:transparent;font-size:.8125rem;font-weight:600}
+.forms button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.body{display:grid;gap:22px;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));
+  padding-top:20px;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 32px)}
+.sec h3{margin:0 0 10px;font-size:.6875rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border-radius:var(--r);overflow:hidden}
+.fact{background:var(--surface);padding:10px 12px;min-width:0}
+.fact .k{font-size:.75rem;color:var(--muted)}
+.fact .v{font-weight:600;overflow-wrap:anywhere}
+.fact .v small{font-weight:400;color:var(--muted)}
+.gbar{display:flex;height:6px;border-radius:3px;overflow:hidden;margin-top:6px;background:var(--surface-2)}
+.gbar i{display:block;height:100%}
+.abil{display:grid;gap:8px}
+.ab{background:var(--surface);border-radius:12px;padding:10px 12px}
+.ab .an{font-weight:700;display:flex;gap:8px;align-items:center}
+.ab .hid{font-size:.625rem;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:var(--surface-2);color:var(--muted);font-weight:700}
+.ab p{margin:2px 0 0;color:var(--muted);font-size:.875rem}
+.stats{display:grid;gap:7px}
+.st{display:grid;grid-template-columns:3.2rem 2.6rem 1fr;align-items:center;gap:8px}
+.st .sk{font-size:.75rem;font-weight:700;color:var(--muted);letter-spacing:.04em}
+.st .sv{font-family:var(--f-mono);font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.st .track{height:10px;border-radius:5px;background:var(--surface-2);overflow:hidden}
+.st .track i{display:block;height:100%;border-radius:5px;transform-origin:left;animation:grow .5s ease-out both}
+@keyframes grow{from{transform:scaleX(0)}}
+.st.total .sv{color:var(--fg)}
+.st.total .sk{color:var(--fg)}
+.st.total{padding-top:6px;border-top:1px solid var(--line)}
+.defs{display:grid;gap:10px}
+.drow{display:grid;grid-template-columns:3rem 1fr;gap:8px;align-items:start}
+.drow .m{font-family:var(--f-mono);font-weight:600;font-size:.875rem;padding-top:2px}
+.drow .types{gap:5px}
+.evo{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.evo .stage{display:flex;flex-direction:column;gap:6px}
+.evo button{border:0;border-radius:12px;padding:8px 12px;background:var(--surface);text-align:left;box-shadow:var(--shadow);min-width:0}
+.evo button[aria-current="true"]{outline:2px solid var(--fg)}
+.evo button .en{font-weight:700;display:block}
+.evo button .ex{font-size:.75rem;color:var(--muted)}
+.evo .arrow{color:var(--muted);font-family:var(--f-mono);font-size:.75rem;text-align:center;padding:0 2px}
+.note{font-size:.75rem;color:var(--muted);margin:8px 0 0}
+.credit{margin-top:28px;font-size:.75rem;color:var(--muted);text-align:center;text-wrap:balance}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="console">
+  <div class="console-inner">
+    <div class="brand">
+      <h1><span class="lens" aria-hidden="true"></span>Pocket Dex</h1>
+      <span class="count" id="count">National Dex</span>
+    </div>
+    <div class="searchrow">
+      <label class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Name, number or ability" autocomplete="off" enterkeyhint="search" aria-label="Search Pokémon">
+      </label>
+      <button class="iconbtn" id="favOnly" aria-pressed="false" aria-label="Show favourites only" title="Favourites">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 17.3 5.8 21l1.6-7L2 9.2l7.1-.6L12 2l2.9 6.6 7.1.6-5.4 4.8 1.6 7z"/></svg>
+      </button>
+      <button class="iconbtn" id="rand" aria-label="Open a random Pokémon" title="Random">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/></svg>
+      </button>
+    </div>
+    <div class="controls">
+      <select id="gen" aria-label="Generation">
+        <option value="0">All generations</option>
+      </select>
+      <select id="sort" aria-label="Sort">
+        <option value="num">Sort: Dex number</option>
+        <option value="name">Sort: Name A–Z</option>
+        <option value="bst">Sort: Base stat total</option>
+        <option value="spe">Sort: Speed</option>
+        <option value="weight">Sort: Weight</option>
+      </select>
+    </div>
+    <div class="typestrip" id="types" role="group" aria-label="Filter by type"></div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="status" id="status" hidden>
+      <span id="showing"></span>
+      <button class="linkbtn" id="reset" hidden>Clear filters</button>
+    </div>
+    <div id="loading" class="loading">
+      <h2>Loading the National Dex</h2>
+      <div>Fetching 1,025 entries with stats, abilities and evolutions.</div>
+      <div class="bar-load"><i></i></div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty" hidden>
+      <h2>No matches</h2>
+      <div>Try a different name, or clear the type and generation filters.</div>
+    </div>
+    <p class="credit">Data from the open-source Pokémon Showdown dex via @pkmn/dex. Pokémon is a trademark of Nintendo, Game Freak and Creatures. Fan reference, not affiliated.</p>
+  </div>
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+<article class="sheet" id="sheet" hidden aria-modal="true" role="dialog" aria-labelledby="dName"></article>
+
+<script>
+(function(){
+const DATA_URL = "https://cdn.jsdelivr.net/npm/@pkmn/dex@0.10.8/build/index.min.js";
+const TYPES = ["Normal","Fire","Water","Electric","Grass","Ice","Fighting","Poison","Ground","Flying","Psychic","Bug","Rock","Ghost","Dragon","Dark","Steel","Fairy"];
+const TC = {Normal:["#a3a37f","#1d1d12"],Fire:["#ee7a37","#2a1104"],Water:["#5a8ef0","#fff"],Electric:["#f4cb2e","#2a2200"],Grass:["#6cbf4d","#0f2306"],
+  Ice:["#8fd6d4","#0b2726"],Fighting:["#c03a2f","#fff"],Poison:["#a14aa1","#fff"],Ground:["#dcbc68","#2b2109"],Flying:["#a491ef","#1a1236"],
+  Psychic:["#f45789","#fff"],Bug:["#a8b923","#1d2104"],Rock:["#b79f3d","#1f1a07"],Ghost:["#6e5998","#fff"],Dragon:["#6f3cf6","#fff"],
+  Dark:["#6f584a","#fff"],Steel:["#b8b8cf","#1b1b2a"],Fairy:["#ec9ec4","#33101f"]};
+// attacking type -> defending type multipliers (non-neutral only)
+const CHART_SRC = {
+ Normal:"Rock.5 Ghost0 Steel.5",
+ Fire:"Fire.5 Water.5 Grass2 Ice2 Bug2 Rock.5 Dragon.5 Steel2",
+ Water:"Fire2 Water.5 Grass.5 Ground2 Rock2 Dragon.5",
+ Electric:"Water2 Electric.5 Grass.5 Ground0 Flying2 Dragon.5",
+ Grass:"Fire.5 Water2 Grass.5 Poison.5 Ground2 Flying.5 Bug.5 Rock2 Dragon.5 Steel.5",
+ Ice:"Fire.5 Water.5 Grass2 Ice.5 Ground2 Flying2 Dragon2 Steel.5",
+ Fighting:"Normal2 Ice2 Poison.5 Flying.5 Psychic.5 Bug.5 Rock2 Ghost0 Dark2 Steel2 Fairy.5",
+ Poison:"Grass2 Poison.5 Ground.5 Rock.5 Ghost.5 Steel0 Fairy2",
+ Ground:"Fire2 Electric2 Grass.5 Poison2 Flying0 Bug.5 Rock2 Steel2",
+ Flying:"Electric.5 Grass2 Fighting2 Bug2 Rock.5 Steel.5",
+ Psychic:"Fighting2 Poison2 Psychic.5 Dark0 Steel.5",
+ Bug:"Fire.5 Grass2 Fighting.5 Poison.5 Flying.5 Psychic2 Ghost.5 Dark2 Steel.5 Fairy.5",
+ Rock:"Fire2 Ice2 Fighting.5 Ground.5 Flying2 Bug2 Steel.5",
+ Ghost:"Normal0 Psychic2 Ghost2 Dark.5",
+ Dragon:"Dragon2 Steel.5 Fairy0",
+ Dark:"Fighting.5 Psychic2 Ghost2 Dark.5 Fairy.5",
+ Steel:"Fire.5 Water.5 Electric.5 Ice2 Rock2 Steel.5 Fairy2",
+ Fairy:"Fire.5 Fighting2 Poison.5 Dragon2 Dark2 Steel.5"};
+const CHART = {};
+for (const a in CHART_SRC){ CHART[a]={}; CHART_SRC[a].split(" ").forEach(t=>{const m=t.match(/^([A-Za-z]+)([\d.]+)$/); CHART[a][m[1]]=parseFloat(m[2]);}); }
+const GENS = [[1,151,"Kanto"],[152,251,"Johto"],[252,386,"Hoenn"],[387,493,"Sinnoh"],[494,649,"Unova"],[650,721,"Kalos"],[722,809,"Alola"],[810,905,"Galar & Hisui"],[906,1025,"Paldea"]];
+const ROMAN = ["","I","II","III","IV","V","VI","VII","VIII","IX"];
+const STATS = [["hp","HP"],["atk","Atk"],["def","Def"],["spa","Sp. Atk"],["spd","Sp. Def"],["spe","Speed"]];
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pad = n => "#" + String(n).padStart(4,"0");
+const genOf = n => { for (let i=0;i<GENS.length;i++) if (n>=GENS[i][0] && n<=GENS[i][1]) return i+1; return 9; };
+const typeVars = t => `--tc:${TC[t]?.[0]||"#888"};--tt:${TC[t]?.[1]||"#fff"}`;
+const tpHTML = t => `<span class="tp" style="${typeVars(t)}">${esc(t)}</span>`;
+const bst = s => STATS.reduce((a,[k])=>a+(s.baseStats[k]||0),0);
+
+let Dex, LIST = [], BYNAME = new Map(), CARDS = new Map();
+let favs = new Set();
+try { favs = new Set(JSON.parse(localStorage.getItem("pocketdex.favs")||"[]")); } catch(e){}
+const saveFavs = () => { try { localStorage.setItem("pocketdex.favs", JSON.stringify([...favs])); } catch(e){} };
+const state = { q:"", type:null, gen:0, sort:"num", favOnly:false, open:null, forme:null };
+
+/* ---------- controls ---------- */
+const typesEl = $("#types");
+typesEl.innerHTML = `<button class="tchip all" data-t="" aria-pressed="true">All types</button>` +
+  TYPES.map(t=>`<button class="tchip" data-t="${t}" style="${typeVars(t)}" aria-pressed="false">${t}</button>`).join("");
+typesEl.addEventListener("click", e => {
+  const b = e.target.closest(".tchip"); if (!b) return;
+  state.type = b.dataset.t || null;
+  typesEl.querySelectorAll(".tchip").forEach(x=>x.setAttribute("aria-pressed", String((x.dataset.t||null)===state.type)));
+  apply();
+});
+$("#gen").insertAdjacentHTML("beforeend", GENS.map((g,i)=>`<option value="${i+1}">Gen ${ROMAN[i+1]} · ${g[2]}</option>`).join(""));
+$("#gen").addEventListener("change", e => { state.gen = +e.target.value; apply(); });
+$("#sort").addEventListener("change", e => { state.sort = e.target.value; apply(true); });
+let qt; $("#q").addEventListener("input", e => { clearTimeout(qt); qt = setTimeout(()=>{ state.q = e.target.value.trim().toLowerCase(); apply(); }, 90); });
+$("#q").addEventListener("keydown", e => { if (e.key==="Enter"){ const first = visible()[0]; if (first) openEntry(first.name); e.target.blur(); } });
+$("#favOnly").addEventListener("click", e => { state.favOnly = !state.favOnly; e.currentTarget.setAttribute("aria-pressed", String(state.favOnly)); apply(); });
+$("#rand").addEventListener("click", () => { const v = visible(); const pool = v.length ? v : LIST; if (pool.length) openEntry(pool[Math.floor(Math.random()*pool.length)].name); });
+$("#reset").addEventListener("click", () => {
+  Object.assign(state,{q:"",type:null,gen:0,favOnly:false}); $("#q").value=""; $("#gen").value="0";
+  $("#favOnly").setAttribute("aria-pressed","false");
+  typesEl.querySelectorAll(".tchip").forEach(x=>x.setAttribute("aria-pressed", String(!x.dataset.t)));
+  apply();
+});
+
+/* ---------- data ---------- */
+function load(){
+  $("#loading").innerHTML = `<h2>Loading the National Dex</h2><div>Fetching 1,025 entries with stats, abilities and evolutions.</div><div class="bar-load"><i></i></div>`;
+  const s = document.createElement("script");
+  s.src = DATA_URL; s.async = true;
+  s.onload = () => { try { init(); } catch(err){ fail("The data loaded but couldn't be read. " + err.message); } };
+  s.onerror = () => fail("Check your connection, then try again.");
+  document.head.appendChild(s);
+}
+function fail(msg){
+  $("#loading").innerHTML = `<h2>Couldn't load the Dex</h2><div>${esc(msg)}</div><button class="retry" id="retry">Try again</button>`;
+  $("#retry").onclick = load;
+}
+function init(){
+  const root = window.pkmn && (window.pkmn.dex || window.pkmn);
+  Dex = root && (root.Dex || root);
+  if (!Dex || !Dex.species) throw new Error("Unexpected data format.");
+  let all = typeof Dex.species.all === "function" ? Dex.species.all() : Object.keys(Dex.data.Species).map(id=>Dex.species.get(id));
+  const seen = new Set();
+  all.filter(s => s && s.exists !== false && s.num>=1 && s.num<=1025 && s.name===s.baseSpecies)
+     .sort((a,b)=>a.num-b.num)
+     .forEach(s => { if (seen.has(s.num)) return; seen.add(s.num); LIST.push(s); });
+  LIST.forEach(s => {
+    s._bst = bst(s); s._gen = genOf(s.num);
+    const ab = Object.values(s.abilities||{}).join(" ").toLowerCase();
+    s._hay = `${s.name.toLowerCase()} ${s.num} ${String(s.num).padStart(4,"0")} ${ab}`;
+    BYNAME.set(s.name, s);
+  });
+  $("#count").textContent = `${LIST.length.toLocaleString()} entries`;
+  const grid = $("#grid"), frag = document.createDocumentFragment();
+  LIST.forEach(s => {
+    const b = document.createElement("button");
+    b.className = "card"; b.dataset.name = s.name;
+    b.style.cssText = `--t1:${TC[s.types[0]][0]}`;
+    b.innerHTML = `<span class="no">${pad(s.num)}</span><span class="nm">${esc(s.name)}</span><span class="types">${s.types.map(tpHTML).join("")}</span><span class="big" aria-hidden="true">${s.num}</span>`;
+    CARDS.set(s.name, b); frag.appendChild(b);
+  });
+  grid.appendChild(frag);
+  grid.addEventListener("click", e => { const c = e.target.closest(".card"); if (c) openEntry(c.dataset.name); });
+  $("#loading").hidden = true; $("#status").hidden = false;
+  refreshFavMarks(); apply(true);
+}
+
+/* ---------- filtering ---------- */
+let currentOrder = [];
+function visible(){
+  const q = state.q;
+  return currentOrder.filter(s =>
+    (!q || s._hay.includes(q.replace(/^#/,"").replace(/^0+(?=\d)/,""))) &&
+    (!state.type || s.types.includes(state.type)) &&
+    (!state.gen || s._gen===state.gen) &&
+    (!state.favOnly || favs.has(s.name)));
+}
+function apply(resort){
+  if (resort || !currentOrder.length){
+    const by = {
+      num:(a,b)=>a.num-b.num, name:(a,b)=>a.name.localeCompare(b.name),
+      bst:(a,b)=>b._bst-a._bst||a.num-b.num, spe:(a,b)=>b.baseStats.spe-a.baseStats.spe||a.num-b.num,
+      weight:(a,b)=>b.weightkg-a.weightkg||a.num-b.num }[state.sort];
+    currentOrder = LIST.slice().sort(by);
+    const grid = $("#grid"); currentOrder.forEach(s => grid.appendChild(CARDS.get(s.name)));
+  }
+  const vis = new Set(visible().map(s=>s.name));
+  CARDS.forEach((el,name)=>{ el.hidden = !vis.has(name); });
+  const filtered = state.q || state.type || state.gen || state.favOnly;
+  $("#showing").innerHTML = filtered ? `Showing <b>${vis.size.toLocaleString()}</b> of ${LIST.length.toLocaleString()}` : `All <b>${LIST.length.toLocaleString()}</b> Pokémon`;
+  $("#reset").hidden = !filtered;
+  $("#empty").hidden = vis.size>0;
+  if (!vis.size && state.favOnly && !state.q && !state.type && !state.gen){
+    $("#empty").innerHTML = `<h2>No favourites yet</h2><div>Open any entry and tap the star to save it here.</div>`;
+  } else {
+    $("#empty").innerHTML = `<h2>No matches</h2><div>Try a different name, or clear the type and generation filters.</div>`;
+  }
+}
+function refreshFavMarks(){
+  CARDS.forEach((el,name)=>{
+    const has = el.querySelector(".fav");
+    if (favs.has(name) && !has) el.insertAdjacentHTML("beforeend",`<svg class="fav" viewBox="0 0 24 24" fill="currentColor" aria-label="Favourite"><path d="M12 17.3 5.8 21l1.6-7L2 9.2l7.1-.6L12 2l2.9 6.6 7.1.6-5.4 4.8 1.6 7z"/></svg>`);
+    if (!favs.has(name) && has) has.remove();
+  });
+}
+
+/* ---------- entry sheet ---------- */
+const sheet = $("#sheet"), scrim = $("#scrim");
+let lastFocus = null;
+function openEntry(name, forme){
+  const base = BYNAME.get(name) || BYNAME.get(Dex.species.get(name).baseSpecies);
+  if (!base) return;
+  state.open = base.name; state.forme = forme || base.name;
+  if (sheet.hidden){ lastFocus = document.activeElement; sheet.hidden = false; scrim.hidden = false; document.body.style.overflow="hidden";
+    requestAnimationFrame(()=>{ sheet.classList.add("on"); scrim.classList.add("on"); }); }
+  render(); sheet.scrollTop = 0;
+}
+function closeEntry(){
+  sheet.classList.remove("on"); scrim.classList.remove("on"); document.body.style.overflow="";
+  setTimeout(()=>{ sheet.hidden = true; scrim.hidden = true; }, 200);
+  const c = CARDS.get(state.open); state.open = null;
+  (c && !c.hidden ? c : lastFocus)?.focus?.({preventScroll:false});
+}
+scrim.addEventListener("click", closeEntry);
+document.addEventListener("keydown", e => {
+  if (sheet.hidden) return;
+  if (e.key==="Escape") closeEntry();
+  if (e.key==="ArrowRight") step(1);
+  if (e.key==="ArrowLeft") step(-1);
+});
+function step(d){
+  const v = visible(); const pool = v.length ? v : currentOrder;
+  let i = pool.findIndex(s=>s.name===state.open);
+  if (i<0) i = currentOrder.findIndex(s=>s.name===state.open);
+  const next = pool[(i + d + pool.length) % pool.length];
+  if (next) openEntry(next.name);
+}
+
+function formsOf(base){
+  const out = [base];
+  (base.otherFormes||[]).forEach(n => { const f = Dex.species.get(n); if (f && f.exists!==false) out.push(f); });
+  return out;
+}
+function formLabel(f, base){
+  if (f.name===base.name) return base.baseForme || "Standard";
+  return (f.forme || f.name.replace(base.name+"-","")).replace(/-/g," ");
+}
+function defenses(types){
+  const res = {};
+  TYPES.forEach(a => { res[a] = types.reduce((m,d)=>m*(CHART[a][d] ?? 1), 1); });
+  return res;
+}
+function evoMethod(s){
+  const bits = [];
+  if (s.evoType==="trade") bits.push("Trade");
+  else if (s.evoType==="useItem") bits.push(s.evoItem || "Use item");
+  else if (s.evoType==="levelFriendship") bits.push("High friendship");
+  else if (s.evoType==="levelMove") bits.push(s.evoMove ? `Level up knowing ${s.evoMove}` : "Level up with move");
+  else if (s.evoType==="levelHold") bits.push(s.evoItem ? `Level up holding ${s.evoItem}` : "Level up holding item");
+  else if (s.evoType==="levelExtra") bits.push("Level up");
+  else if (s.evoType==="other") bits.push("Special");
+  if (s.evoLevel) bits.unshift("Lv. "+s.evoLevel);
+  if (s.evoType==="trade" && s.evoItem) bits.push(s.evoItem);
+  if (s.evoCondition) bits.push(s.evoCondition);
+  return bits.join(", ") || "Level up";
+}
+function evoTree(sp){
+  let root = sp; const guard = new Set();
+  while (root.prevo && !guard.has(root.name)){ guard.add(root.name); const p = Dex.species.get(root.prevo); if (!p || p.exists===false) break; root = p; }
+  const stages = []; let level = [root];
+  while (level.length && stages.length<5){
+    stages.push(level);
+    const next = [];
+    level.forEach(s => (s.evos||[]).forEach(n => { const e = Dex.species.get(n); if (e && e.exists!==false && e.num<=1025) next.push(e); }));
+    level = next;
+  }
+  return stages;
+}
+const fmtH = m => { const inch = Math.round(m*39.3701); return `${m.toFixed(1)} m <small>· ${Math.floor(inch/12)}′${inch%12}″</small>`; };
+const fmtW = kg => `${kg.toLocaleString(undefined,{maximumFractionDigits:1})} kg <small>· ${(kg*2.20462).toLocaleString(undefined,{maximumFractionDigits:1})} lb</small>`;
+const statColor = v => v<50?"var(--low)":v<80?"var(--mid)":v<110?"var(--good)":"var(--great)";
+
+function render(){
+  const base = BYNAME.get(state.open);
+  const forms = formsOf(base);
+  const s = forms.find(f=>f.name===state.forme) || base;
+  const fav = favs.has(base.name);
+  sheet.style.cssText = `--t1:${TC[s.types[0]][0]}`;
+
+  const gender = s.gender==="N" ? `<div class="v">Genderless</div>` :
+    s.gender==="M" ? `<div class="v">Male only</div><div class="gbar"><i style="width:100%;background:var(--male)"></i></div>` :
+    s.gender==="F" ? `<div class="v">Female only</div><div class="gbar"><i style="width:100%;background:var(--female)"></i></div>` :
+    (()=>{ const m = (s.genderRatio?.M ?? .5)*100; return `<div class="v mono">${+m.toFixed(1)}% ♂ · ${+(100-m).toFixed(1)}% ♀</div><div class="gbar"><i style="width:${m}%;background:var(--male)"></i><i style="width:${100-m}%;background:var(--female)"></i></div>`; })();
+
+  const abil = Object.entries(s.abilities||{}).map(([slot,n]) => {
+    const a = Dex.abilities.get(n);
+    return `<div class="ab"><div class="an">${esc(n)}${slot==="H"?`<span class="hid">Hidden</span>`:slot==="S"?`<span class="hid">Special</span>`:""}</div>${a && (a.shortDesc||a.desc) ? `<p>${esc(a.shortDesc||a.desc)}</p>`:""}</div>`;
+  }).join("");
+
+  const total = bst(s);
+  const stats = STATS.map(([k,l]) => { const v = s.baseStats[k]; return `<div class="st"><span class="sk">${l}</span><span class="sv">${v}</span><span class="track"><i style="width:${Math.min(100,v/255*100)}%;background:${statColor(v)}"></i></span></div>`; }).join("")
+    + `<div class="st total"><span class="sk">Total</span><span class="sv">${total}</span><span></span></div>`;
+
+  const d = defenses(s.types);
+  const groups = [[4,"×4"],[2,"×2"],[.5,"×½"],[.25,"×¼"],[0,"×0"]].map(([m,l]) => {
+    const ts = TYPES.filter(t=>d[t]===m); if (!ts.length) return "";
+    return `<div class="drow"><span class="m">${l}</span><span class="types">${ts.map(tpHTML).join("")}</span></div>`;
+  }).join("");
+
+  const stages = evoTree(s);
+  const evoHTML = stages.length>1 ? stages.map((lvl,i) =>
+      (i? `<span class="arrow" aria-hidden="true">→</span>`:"") +
+      `<div class="stage">${lvl.map(e=>`<button data-evo="${esc(e.name)}" aria-current="${e.name===s.name}"><span class="en">${esc(e.name)}</span><span class="ex">${i? esc(evoMethod(e)) : pad(e.num)}</span></button>`).join("")}</div>`
+    ).join("") : "";
+
+  const facts = [
+    ["Height", fmtH(s.heightm)], ["Weight", fmtW(s.weightkg)],
+    ["Generation", `Gen ${ROMAN[base._gen]} <small>· ${GENS[base._gen-1][2]}</small>`],
+    ["Egg groups", esc((s.eggGroups||[]).join(", ") || "—")]
+  ].map(([k,v])=>`<div class="fact"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("")
+   + `<div class="fact" style="grid-column:1/-1"><div class="k">Gender</div>${gender}</div>`;
+
+  sheet.innerHTML = `
+  <div class="sheet-top">
+    <button class="tbtn" id="close" aria-label="Back to list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <span class="sp"></span>
+    <button class="tbtn" id="prev" aria-label="Previous entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 15l6-6 6 6"/></svg></button>
+    <button class="tbtn" id="next" aria-label="Next entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+    <button class="tbtn" id="favbtn" aria-pressed="${fav}" aria-label="${fav?"Remove from favourites":"Add to favourites"}"><svg viewBox="0 0 24 24" fill="${fav?"currentColor":"none"}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 17.3 5.8 21l1.6-7L2 9.2l7.1-.6L12 2l2.9 6.6 7.1.6-5.4 4.8 1.6 7z"/></svg></button>
+  </div>
+  <section class="hero">
+    <span class="bignum" aria-hidden="true">${s.num}</span>
+    <div class="no">${pad(s.num)}</div>
+    <h2 id="dName">${esc(s.name)}</h2>
+    <div class="types">${s.types.map(tpHTML).join("")}</div>
+    ${forms.length>1 ? `<div class="forms" role="group" aria-label="Forms">${forms.map(f=>`<button data-forme="${esc(f.name)}" aria-pressed="${f.name===s.name}">${esc(formLabel(f,base))}</button>`).join("")}</div>` : ""}
+  </section>
+  <div class="body">
+    <section class="sec"><h3>Profile</h3><div class="facts">${facts}</div></section>
+    <section class="sec"><h3>Base stats</h3><div class="stats">${stats}</div></section>
+    <section class="sec"><h3>Abilities</h3><div class="abil">${abil}</div></section>
+    <section class="sec"><h3>Damage taken</h3><div class="defs">${groups}</div><p class="note">By type alone. Every type not listed deals normal damage. Abilities like Levitate can change this.</p></section>
+    ${evoHTML ? `<section class="sec"><h3>Evolution</h3><div class="evo">${evoHTML}</div></section>` : `<section class="sec"><h3>Evolution</h3><p class="note" style="margin:0">Does not evolve.</p></section>`}
+  </div>`;
+
+  $("#close").onclick = closeEntry;
+  $("#prev").onclick = () => step(-1);
+  $("#next").onclick = () => step(1);
+  $("#favbtn").onclick = () => { favs.has(base.name) ? favs.delete(base.name) : favs.add(base.name); saveFavs(); refreshFavMarks(); render(); if (state.favOnly) apply(); };
+  sheet.querySelectorAll("[data-forme]").forEach(b => b.onclick = () => { state.forme = b.dataset.forme; render(); });
+  sheet.querySelectorAll("[data-evo]").forEach(b => b.onclick = () => {
+    const e = Dex.species.get(b.dataset.evo);
+    openEntry(e.baseSpecies, e.name);
+  });
+  if (document.activeElement===document.body || !sheet.contains(document.activeElement)) $("#close").focus({preventScroll:true});
+}
+
+load();
+})();
+</script>
+</body>
+</html>
